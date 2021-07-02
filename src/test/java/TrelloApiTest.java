@@ -14,6 +14,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class TrelloApiTest {
+    // shared data List
     List<String> boardIdList = new ArrayList<>();
     List<String> boardNameList = new ArrayList<>();
 
@@ -26,7 +27,7 @@ public class TrelloApiTest {
                 .buildRequest()
                 .sendRequest();
 
-        // Assert response board name and  board id equals to request board id and name
+        // Assert response board name and  board id equals to request board name and id
         String responseBoardId = boardSchemaObject(response).getId();
         String responseBoardName = boardSchemaObject(response).getName();
 
@@ -56,19 +57,24 @@ public class TrelloApiTest {
     }
 
     @Test(dataProvider = "boardNewNames", dataProviderClass = DataProviders.class, priority = 2)
-    public void updateBoardTest(String newName) {
+    public void renameBoardTest(String newName) {
         if (boardIdList.size() == 0) {
             assertThat("Board list should be created first", false);
         }
+        // rename boards saved in List
         for (String boardId : boardIdList) {
-            requestBuilder()
+            Response response = requestBuilder()
                     .setMethod(Method.PUT)
                     .setBoardId(boardId)
                     .setName(newName)
                     .buildRequest()
                     .sendRequest();
+            // Assert response name equals new name
+            String responseBoardName = boardSchemaObject(response).getName();
+            assertThat(responseBoardName, equalTo(newName));
         }
     }
+
 
     @Test(priority = 3)
     public void deleteBoardTest() {
@@ -76,6 +82,7 @@ public class TrelloApiTest {
             assertThat("Board list should be created first", false);
         }
 
+        // delete boards saved in List
         for (String boardId : boardIdList) {
             requestBuilder()
                     .setMethod(Method.DELETE)

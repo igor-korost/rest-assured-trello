@@ -1,9 +1,8 @@
 package core;
 
-import beans.BoardSchema;
+import beans.Board;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import constants.BoardFields;
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.builder.ResponseSpecBuilder;
@@ -17,24 +16,27 @@ import util.PropertiesFileReader;
 
 import java.net.URI;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import static constants.BoardFields.*;
+import static constants.AuthFields.KEY_FIELD;
+import static constants.AuthFields.TOKEN_FIELD;
+import static constants.BoardFields.BOARD_NAME_FIELD;
 
 public class TrelloServiceObj {
-    public static final URI TRELLO_URI = URI.create("https://api.trello.com/1/boards");
+    public static final URI TRELLO_URI = URI.create(PropertiesFileReader.getProperty("TRELLO_URI"));
     public static final String API_TOKEN = PropertiesFileReader.getProperty("API_TOKEN");
     public static final String API_KEY = PropertiesFileReader.getProperty("API_KEY");
+    public static final String allBoardsPath = "/members/me/boards";
 
     private Method requestMethod;
     private Map<String, String> parameters;
-    private String boardID;
+    private String path;
 
-
-    public TrelloServiceObj(Method method, String boardID, Map<String, String> parameters) {
+    public TrelloServiceObj(Method method, String path, Map<String, String> parameters) {
         this.requestMethod = method;
         this.parameters = parameters;
-        this.boardID = boardID;
+        this.path = path;
     }
 
     public static RequestBuilder requestBuilder() {
@@ -43,7 +45,7 @@ public class TrelloServiceObj {
 
     public static class RequestBuilder {
         private Method requestMethod;
-        private String boardID = ""; // default value
+        private String path = ""; // default value
         private Map<String, String> parameters = new HashMap<>();
 
         public RequestBuilder setMethod(Method method) {
@@ -56,19 +58,24 @@ public class TrelloServiceObj {
             return this;
         }
 
-        public RequestBuilder setBoardId(String id) {
-            boardID = id;
+        public RequestBuilder setPath(String path) {
+            this.path = path;
             return this;
         }
 
         public TrelloServiceObj buildRequest() {
-            return new TrelloServiceObj(requestMethod, boardID, parameters);
+            return new TrelloServiceObj(requestMethod, path, parameters);
         }
     }
 
     // Create Board Java object from response
-    public static BoardSchema boardSchemaObject(Response response) {
-        return new Gson().fromJson(response.asString().trim(), new TypeToken<BoardSchema>() {
+    public static Board createBoard(Response response) {
+        return new Gson().fromJson(response.asString().trim(), new TypeToken<Board>() {
+        }.getType());
+    }
+
+    public static List<Board> createBoardList(Response response) {
+        return new Gson().fromJson(response.asString().trim(), new TypeToken<List<Board>>() {
         }.getType());
     }
 
@@ -93,14 +100,10 @@ public class TrelloServiceObj {
 
     // Send request
     public Response sendRequest() {
-        String boardIdPath = "";
-        if (boardID.length() > 0) {
-            boardIdPath = boardID + "/";
-        }
         return RestAssured
                 .given(requestSpecification()).log().all()
                 .queryParams(parameters)
-                .request(requestMethod, boardIdPath)
+                .request(requestMethod, path)
                 .prettyPeek();
     }
 }

@@ -8,7 +8,7 @@ import java.util.Properties;
 public class PropertiesFileReader {
 
     public static String getProperty(String name) {
-        String propertiesPath = "src/main/resources/apiToken.properties";
+        String propertiesPath = "src/main/resources/environment.properties";
         String value = "";
         Properties properties = new Properties();
 

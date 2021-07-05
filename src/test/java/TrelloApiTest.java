@@ -1,105 +1,137 @@
-
 import core.DataProviders;
+import helpers.BoardsList;
 import io.restassured.http.Method;
 import io.restassured.response.Response;
-import org.apache.http.HttpStatus;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static core.TrelloServiceObj.boardSchemaObject;
+import static core.DataProviders.boardName;
+import static core.DataProviders.boardNewName;
+import static core.TrelloServiceObj.createBoard;
 import static core.TrelloServiceObj.requestBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static constants.Endpoints.*;
 
 public class TrelloApiTest {
-    // shared data List
     List<String> boardIdList = new ArrayList<>();
     List<String> boardNameList = new ArrayList<>();
 
-    @Test(dataProvider = "boardNames", dataProviderClass = DataProviders.class, priority = 1)
-    public void createBoardTest(String boardName) {
-
+    @BeforeMethod
+    public void setUp() {
+        // Create Board
         Response response = requestBuilder()
                 .setMethod(Method.POST)
                 .setName(boardName)
+                .setPath(BOARD_PATH)
                 .buildRequest()
                 .sendRequest();
 
-        // Assert response board name and  board id equals to request board name and id
-        String responseBoardId = boardSchemaObject(response).getId();
-        String responseBoardName = boardSchemaObject(response).getName();
+        String responseBoardId = createBoard(response).getId();
+        assertThat("Response id is null", responseBoardId, is(notNullValue()));
 
-        assertThat(responseBoardId, is(notNullValue()));
-        assertThat(responseBoardName, equalTo(boardName));
+        String responseBoardName = createBoard(response).getName();
+        assertThat("Response name is not equal to name send in request",responseBoardName, equalTo(boardName));
 
-        // Save response for future reference
-        boardIdList.add(responseBoardId);
-        boardNameList.add(responseBoardName);
+        // Save generated board name and board id  from response
+        boardIdList.add(createBoard(response).getId());
+        boardNameList.add(boardName);
     }
 
-    @Test(priority = 2)
-    public void getBoardByIdTest() {
-        if (boardIdList.size() == 0) {
-            assertThat("Board list should be created first", false);
-        }
-        for (int i = 0; i < boardIdList.size(); i++) {
-            Response response = requestBuilder()
-                    .setMethod(Method.GET)
-                    .setBoardId(boardIdList.get(i))
-                    .buildRequest()
-                    .sendRequest();
-            // Assert response board name equals to previously generated board names
-            String responseBoardName = boardSchemaObject(response).getName();
-            assertThat(responseBoardName, equalTo(boardNameList.get(i)));
-        }
-    }
-
-    @Test(dataProvider = "boardNewNames", dataProviderClass = DataProviders.class, priority = 2)
-    public void renameBoardTest(String newName) {
-        if (boardIdList.size() == 0) {
-            assertThat("Board list should be created first", false);
-        }
-        // rename boards saved in List
+    @AfterMethod
+    public void tearDown() {
+        // Delete all created boards saved in List
         for (String boardId : boardIdList) {
             Response response = requestBuilder()
-                    .setMethod(Method.PUT)
-                    .setBoardId(boardId)
-                    .setName(newName)
-                    .buildRequest()
-                    .sendRequest();
-            // Assert response name equals new name
-            String responseBoardName = boardSchemaObject(response).getName();
-            assertThat(responseBoardName, equalTo(newName));
-        }
-    }
-
-
-    @Test(priority = 3)
-    public void deleteBoardTest() {
-        if (boardIdList.size() == 0) {
-            assertThat("Board list should be created first", false);
-        }
-
-        // delete boards saved in List
-        for (String boardId : boardIdList) {
-            requestBuilder()
                     .setMethod(Method.DELETE)
-                    .setBoardId(boardId)
+                    .setPath(BOARD_PATH + boardId)
                     .buildRequest()
                     .sendRequest();
         }
+        boardIdList.clear();
+        boardNameList.clear();
+    }
 
-        // Try to get deleted boards
-        for (String boardId : boardIdList) {
-            Response response = requestBuilder()
-                    .setMethod(Method.GET)
-                    .setBoardId(boardId)
-                    .buildRequest()
-                    .sendRequest();
+    @Test(dataProvider = "boardNames", dataProviderClass = DataProviders.class)
+    public void createBoardTest(String boardName) {
+        Response response = requestBuilder()
+                .setMethod(Method.POST)
+                .setName(boardName)
+                .setPath(BOARD_PATH)
+                .buildRequest()
+                .sendRequest();
 
-            assertThat(response.getStatusCode(), equalTo(HttpStatus.SC_NOT_FOUND));
-        }
+        // Save board id and name from response
+        boardIdList.add(createBoard(response).getId());
+        boardNameList.add(createBoard(response).getName());
+
+        // Assert server board names equal to generated names (compare Lists)
+        List<String> boardNamesOnServer = BoardsList.getBoardNameList();
+        assertThat("Board names on server and generated names are not equal",
+                boardNamesOnServer, containsInAnyOrder(boardNameList.toArray()));
+    }
+
+    @Test
+    public void getBoardByIdTest() {
+        // get name and id generated at SetUp
+        String boardId = boardIdList.get(0);
+        String boardName = boardNameList.get(0);
+
+        Response response = requestBuilder()
+                .setMethod(Method.GET)
+                .setPath(BOARD_PATH + boardId)
+                .buildRequest()
+                .sendRequest();
+        // compare generated name with response name
+        String responseBoardName = createBoard(response).getName();
+        assertThat("Response name and generated name are not equal", responseBoardName, equalTo(boardName));
+    }
+
+    @Test
+    public void renameBoardTest() {
+        String boardId = boardIdList.get(0);
+
+        Response response = requestBuilder()
+                .setMethod(Method.PUT)
+                .setPath(BOARD_PATH + boardId)
+                .setName(boardNewName)
+                .buildRequest()
+                .sendRequest();
+
+        // Assert response name equals new name
+        String responseBoardName = createBoard(response).getName();
+        assertThat("Create response name and generated name are not equal", responseBoardName, equalTo(boardNewName));
+
+        // Assert name on server equals new name
+        Response boardGetResponse = requestBuilder()
+                .setMethod(Method.GET)
+                .setPath(BOARD_PATH + boardId)
+                .buildRequest()
+                .sendRequest();
+
+        String getBoardName = createBoard(boardGetResponse).getName();
+        assertThat("Name(s) from server are not equal to generated",
+                responseBoardName, equalTo(boardNewName));
+
+    }
+
+    @Test
+    public void deleteBoardTest() {
+        String boardId = boardIdList.get(0);
+        // delete board saved in List
+        requestBuilder()
+                .setMethod(Method.DELETE)
+                .setPath(BOARD_PATH + boardId)
+                .buildRequest()
+                .sendRequest();
+
+        // Assert there is no deleted boards on server (compare Lists)
+        List<String> boardNamesOnServer = BoardsList.getBoardNameList();
+        assertThat("Deleted boards are still present on server",
+                boardNamesOnServer, not(containsInAnyOrder(boardNameList.toArray())));
     }
 }

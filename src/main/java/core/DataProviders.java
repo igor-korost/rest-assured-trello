@@ -1,27 +1,25 @@
 package core;
 
 import org.testng.annotations.DataProvider;
-import static constants.TestData.*;
+
+import java.util.UUID;
 
 public class DataProviders {
 
-    @DataProvider
-    public Object[][] boardNames() {
-        int random = (int) (Math.random()*1000);
-        return new Object[][]{
-                {BOARD_NAME + " with random #" + random},
-                {BOARD_NAME_SPECIAL_CHARACTERS + " with random #" + random},
-                {BOARD_NAME_RUSSIAN + " with random #" + random},
-        };
+    public static final String boardName = generateString();
+    public static final String boardNewName = generateString();
+
+    // random alpha-numeric String generator (UUID)
+    public static String generateString() {
+        return UUID.randomUUID().toString();
     }
 
     @DataProvider
-    public Object[][] boardNewNames() {
-        int random = (int) (Math.random()*1000);
+    public Object[][] boardNames() {
         return new Object[][]{
-                {BOARD_NEW_NAME + " 1 with random #" + random},
-                {BOARD_NEW_NAME + " 2 with random #" + random},
-                {BOARD_NEW_NAME + " 3 with random #" + random}
+                {generateString()},
+                {generateString()},
         };
     }
 }
+
